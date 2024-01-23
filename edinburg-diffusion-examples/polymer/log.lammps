@@ -1,0 +1,332 @@
+LAMMPS (29 Oct 2020)
+###############################################
+# LAMMPS script for a polymer
+###############################################
+
+###
+# Box and units  (use LJ units and periodic boundaries)
+###
+
+units lj                 # use lennard-jones (i.e. dimensionless) units
+atom_style angle         # atoms with bonds and angles
+
+boundary p p p           # all boundaries are periodic
+
+###
+# Pair interactions require lists of neighbours to be calculated
+###
+neighbor 1.9 bin
+neigh_modify every 1 delay 1 check yes
+
+###
+# READ "start" data file
+###
+read_data initial_configuration.txt
+Reading data file ...
+  orthogonal box = (-25.000000 -25.000000 -25.000000) to (25.000000 25.000000 25.000000)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  200 atoms
+  reading velocities ...
+  200 velocities
+  scanning bonds ...
+  1 = max bonds/atom
+  scanning angles ...
+  1 = max angles/atom
+  reading bonds ...
+  199 bonds
+  reading angles ...
+  198 angles
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0.0      0.0      0.0     
+  special bond factors coul:  0.0      0.0      0.0     
+     2 = max # of 1-2 neighbors
+     2 = max # of 1-3 neighbors
+     4 = max # of 1-4 neighbors
+     6 = max # of special neighbors
+  special bonds CPU = 0.000 seconds
+  read_data CPU = 0.003 seconds
+
+###
+# Generate regular RESTART files to store state of simulation
+###
+restart 5000 polymer.restart
+
+
+###
+# Reset timestep
+###
+reset_timestep 0
+
+###
+# Define groups
+###
+group all type 1  #(atom type 1 is group 'all')
+200 atoms in group all
+
+###
+# Dump configurations
+###
+dump dum1 all custom 1000 dump.DNA id type xs ys zs ix iy iz
+# every 1000 time steps, each atom's id, type, x,y,z coords and x,y,z image flages are output.
+# image flags count how many times each atom has moved through a periodic boundary
+
+###
+# Set up interactions - start with 'soft' potentials
+###
+
+## angles
+angle_style  cosine
+angle_coeff   1  20.0
+# this choice gives a polymer with the same persistence length as DNA
+
+## Between bonded atoms
+bond_style   harmonic
+# For style harmonic, specify:
+#   * bond type
+#   * K (energy/distance^2)
+#   * R0 (distance)
+bond_coeff   1   90.0   1.1
+
+
+## Between non-bonded atoms
+pair_style     soft 1.12246152962189
+#  pair_coeff for soft, specify 3:
+#    * atom type interacting with
+#    * atom type
+#    * energy
+#    * cutoff
+pair_coeff * *  100.0 1.12246152962189
+
+
+###
+# Set up fixes
+###
+variable seed equal 54654651     # a seed for the thermostat
+
+fix 1 all nve                             # NVE integrator
+fix 2 all langevin   1.0 1.0 1.0 ${seed}  # langevin thermostat
+fix 2 all langevin   1.0 1.0 1.0 54654651  
+
+##### Output thermodynamic info  (temperature, energy, pressure, etc.) #####
+thermo 1000
+thermo_style   custom   step  temp  epair  emol  press  vol
+############################################################################
+
+##### Output thermodynamic info to file  ###################################
+variable t equal step
+variable mytemp equal temp
+variable myepair equal epair
+fix mythermofile all print 1000 "$t ${mytemp} ${myepair}" file thermo_output.dat screen no
+############################################################################
+
+############################################################################
+#### Set up a compute for R_g
+compute myRG2compute all gyration
+#### and write it to a file
+variable RG2 equal c_myRG2compute
+fix myRG2file all print 1000 "$t ${RG2}" file radius_of_gyration_squared.dat screen no
+############################################################################
+
+###
+# set timestep of integrator
+###
+timestep 0.01
+
+###
+# run integration for a number of steps to equilibrate with soft potnentials
+###
+
+run 5000
+Neighbor list info ...
+  update every 1 steps, delay 1 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 3.0224615
+  ghost atom cutoff = 3.0224615
+  binsize = 1.5112308, bins = 34 34 34
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair soft, perpetual
+      attributes: half, newton on
+      pair build: half/bin/newton
+      stencil: half/bin/3d/newton
+      bin: standard
+WARNING: Communication cutoff 3.02246152962189 is shorter than a bond length based estimate of 3.55. This may lead to errors. (../comm.cpp:667)
+Per MPI rank memory allocation (min/avg/max) = 6.682 | 6.682 | 6.682 Mbytes
+Step Temp E_pair E_mol Press Volume 
+       0            0    371.89355    40.637978    0.3909599       125000 
+    1000    1.0011036            0    2.2224117 0.0023567803       125000 
+    2000   0.97700978            0    2.0168851 -0.00078347737       125000 
+    3000   0.99063751            0    2.0258118 -0.00022330605       125000 
+    4000     0.972484            0    1.7072971 0.0020899167       125000 
+    5000   0.91689298            0    1.8911289 0.00043521774       125000 
+Loop time of 0.114749 on 1 procs for 5000 steps with 200 atoms
+
+Performance: 37647401.744 tau/day, 43573.382 timesteps/s
+98.3% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.0063131  | 0.0063131  | 0.0063131  |   0.0 |  5.50
+Bond    | 0.048694   | 0.048694   | 0.048694   |   0.0 | 42.44
+Neigh   | 0.017196   | 0.017196   | 0.017196   |   0.0 | 14.99
+Comm    | 0.0015659  | 0.0015659  | 0.0015659  |   0.0 |  1.36
+Output  | 0.0020468  | 0.0020468  | 0.0020468  |   0.0 |  1.78
+Modify  | 0.035053   | 0.035053   | 0.035053   |   0.0 | 30.55
+Other   |            | 0.003881   |            |       |  3.38
+
+Nlocal:        200.000 ave         200 max         200 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:        0.00000 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:        52.0000 ave          52 max          52 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 52
+Ave neighs/atom = 0.26
+Ave special neighs/atom = 5.9400000
+Neighbor list builds = 179
+Dangerous builds = 0
+
+write_restart DNA.equlilb.restart
+System init for write_restart ...
+WARNING: Communication cutoff 3.02246152962189 is shorter than a bond length based estimate of 3.55. This may lead to errors. (../comm.cpp:667)
+
+
+###
+# Now switch to LJ potential and FENE bonds
+
+## Between bonded atoms
+bond_style   fene
+special_bonds fene #<=== I M P O R T A N T prevents LJ from being counted twice
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0.0      1.0      1.0     
+  special bond factors coul:  0.0      1.0      1.0     
+     2 = max # of 1-2 neighbors
+     6 = max # of special neighbors
+  special bonds CPU = 0.000 seconds
+# For style FENE, specify:
+#   * bond type
+#   * K (energy/distance^2)
+#   * R0 (distance)
+#   * epsilon
+#   * sigma
+bond_coeff   1    30.0   1.6   1.0   1.0
+
+## Between non-bonded atoms
+pair_style      lj/cut 1.12246152962189
+pair_modify shift yes        # option to ensure energy is calculated corectly
+#  pair_coeff for LJ, specify 4:
+#    * atom type interacting with
+#    * atom type
+#    * energy
+#    * mean diameter of the two atom types
+#    * cutoff
+pair_coeff      1 1 1.0 1.0 1.12246152962189
+
+
+###
+# now do a longer run
+###
+
+run 50000
+Neighbor list info ...
+  update every 1 steps, delay 1 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 3.0224615
+  ghost atom cutoff = 3.0224615
+  binsize = 1.5112308, bins = 34 34 34
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/newton
+      stencil: half/bin/3d/newton
+      bin: standard
+WARNING: Communication cutoff 3.02246152962189 is shorter than a bond length based estimate of 3.355. This may lead to errors. (../comm.cpp:667)
+Per MPI rank memory allocation (min/avg/max) = 6.682 | 6.682 | 6.682 Mbytes
+Step Temp E_pair E_mol Press Volume 
+    5000   0.91689298            0    26.910912 -0.033300405       125000 
+    6000   0.96564136            0    21.177681 0.0013480572       125000 
+    7000   0.97625787            0    21.099543 -0.00053362907       125000 
+    8000    1.0811247            0     21.28715 -0.0022326901       125000 
+    9000   0.97862777            0    21.137917 -0.001067498       125000 
+   10000    1.0158286            0    21.312312 -0.00028922145       125000 
+   11000   0.98597772            0    21.180729 0.0011798123       125000 
+   12000   0.93538217            0    21.357273 0.0016394799       125000 
+   13000    1.0734658            0    21.271277 -0.00020153324       125000 
+   14000   0.98632757            0    21.136469 0.0032270624       125000 
+   15000   0.98174448            0     21.14092 -0.00033370419       125000 
+   16000    1.0729378            0    20.918196 0.00095868004       125000 
+   17000   0.93507024            0    20.982855 -0.00037311707       125000 
+   18000   0.97681142            0     21.16628 0.00017909511       125000 
+   19000    1.0866013            0    20.896647 0.00065611198       125000 
+   20000   0.92078111            0    21.015461 -0.00022420224       125000 
+   21000   0.91195976            0    21.089267 -0.00062172356       125000 
+   22000   0.98757465            0     21.00116 0.0004850936       125000 
+   23000    1.0292649            0    21.081884 0.00038104896       125000 
+   24000   0.99611025            0    21.088286 -0.00060804637       125000 
+   25000   0.95076898            0    21.105731 -0.0004853267       125000 
+   26000   0.96247644            0    21.024451 0.00045973381       125000 
+   27000    1.0166411            0    21.125869 -3.7569792e-05       125000 
+   28000    1.0009914 0.00096544025    21.021553 3.1138974e-05       125000 
+   29000    1.0332324            0    20.987913  0.001215611       125000 
+   30000    1.0844498            0    20.885144 0.0012020658       125000 
+   31000   0.94401114            0     20.87355 0.0010550297       125000 
+   32000    1.0037284            0    20.998517 0.0022121526       125000 
+   33000   0.99361111            0    21.186628 0.0019006061       125000 
+   34000   0.98639571            0    21.058422 -0.0016912604       125000 
+   35000     1.071668            0    20.762184 0.0017265669       125000 
+   36000     1.116309            0    21.115015 0.00050673323       125000 
+   37000   0.89892952            0    20.943953 -0.00056700264       125000 
+   38000   0.95431122            0    21.120141 -0.00060178156       125000 
+   39000   0.92352061            0    20.963005 0.00030573387       125000 
+   40000   0.97595292            0    20.873332 -0.00051928337       125000 
+   41000     1.065713            0    21.045879 0.0026257805       125000 
+   42000    1.0472143            0    21.007124 0.00067194469       125000 
+   43000   0.97980708            0    21.141565 0.0024060521       125000 
+   44000   0.92331484            0    21.096012 -0.0011782168       125000 
+   45000   0.99393817            0    21.260884 7.7060839e-06       125000 
+   46000   0.95468395            0    20.962484 -0.0016414463       125000 
+   47000    1.0982231            0    20.967018 -0.0013429831       125000 
+   48000   0.95049701            0    20.925128 -0.0028918406       125000 
+   49000    1.0833934 0.00040255097    21.048924 0.00050369223       125000 
+   50000    1.0623673 0.00051463064    20.885994 0.00059609384       125000 
+   51000    0.9443098            0     21.10235 -0.00071175268       125000 
+   52000    1.0108462            0    21.077954 4.0004769e-05       125000 
+   53000    1.0633244            0    20.960416 0.00046823536       125000 
+   54000    1.0591232            0    20.983665 0.00072967613       125000 
+   55000   0.88532365            0    20.991042 -0.0010843422       125000 
+Loop time of 1.25611 on 1 procs for 50000 steps with 200 atoms
+
+Performance: 34391919.830 tau/day, 39805.463 timesteps/s
+98.1% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.13776    | 0.13776    | 0.13776    |   0.0 | 10.97
+Bond    | 0.58649    | 0.58649    | 0.58649    |   0.0 | 46.69
+Neigh   | 0.086309   | 0.086309   | 0.086309   |   0.0 |  6.87
+Comm    | 0.024728   | 0.024728   | 0.024728   |   0.0 |  1.97
+Output  | 0.021843   | 0.021843   | 0.021843   |   0.0 |  1.74
+Modify  | 0.35889    | 0.35889    | 0.35889    |   0.0 | 28.57
+Other   |            | 0.04008    |            |       |  3.19
+
+Nlocal:        200.000 ave         200 max         200 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:        70.0000 ave          70 max          70 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:        426.000 ave         426 max         426 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 426
+Ave neighs/atom = 2.1300000
+Ave special neighs/atom = 1.9900000
+Neighbor list builds = 1006
+Dangerous builds = 0
+
+#### write a final restart file
+write_restart final.restart
+System init for write_restart ...
+WARNING: Communication cutoff 3.02246152962189 is shorter than a bond length based estimate of 3.355. This may lead to errors. (../comm.cpp:667)
+Total wall time: 0:00:01
