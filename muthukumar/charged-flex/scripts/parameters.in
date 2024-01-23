@@ -1,0 +1,15 @@
+Bond_parameters_LJ_units	1	5000	1.0
+dielectric_constant 80.0
+Pair_style_total 	3	
+Pair_cut_off_LJ_units	1.12 12
+Pairs 1 1 1.0 1.0 1.12 
+Pairs 1 2 1.0  0.8 0.896 
+Pairs 2 2 1.0  0.6 0.672 
+Angle_Style 1 2.0 180.0
+kspace_accuracy 1e-5 
+Timestep_LJ_units	0.001
+Temperature_LJ_units	1.0
+damp_LJ_units		1.0
+Dump_frequency	5000
+Total_run	2000000
+QFACTOR_convert2LJ	7.48

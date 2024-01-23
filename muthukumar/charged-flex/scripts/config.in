@@ -1,0 +1,19 @@
+Information about the system 
+Most units in LJ units refer LAMMPS documentation
+#################################
+Parameters_In_LJ   parameters.in
+###############################
+Create data dile
+##########################
+box_dimension_angstrom	Format: r[i]_min r[i]_max (LJ units)
+-30	30
+-30	30
+-30	30
+#####################
+Polymer_info_only_polycation_polyanion_is_duplicated
+N 60
+Concentration_Moles_per_Lit 0.0000
+#####################
+salt_info
+Concn_Moles_per_Lit	0.00
+################ End of config ####################
